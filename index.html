@@ -258,6 +258,41 @@
   <p id="loading-status" style="font-size:0.65rem">Loading Pyodide...</p>
 </div>
 
+  <!-- DONATION BAR -->
+<div id="donation-bar" style="
+  width: 100%;
+  background: #ff003c;
+  color: #fff;
+  font-family: 'Share Tech Mono', monospace;
+  text-align: center;
+  padding: 10px 0;
+  font-size: 0.8rem;
+  position: sticky;
+  top: 0;
+  z-index: 200;
+  cursor: pointer;
+  text-shadow: 0 0 6px #fff;
+">
+  If you're creating NFTs with this tool, please consider donating to Tezos: tz1RFGemQYuW9ctkJodYFRxhsdqvCZpYfvjh
+</div>
+
+<script>
+  const bar = document.getElementById('donation-bar');
+  bar.addEventListener('click', () => {
+    // Tezos URI scheme opens a wallet app if installed
+    const tezosAddress = "tz1RFGemQYuW9ctkJodYFRxhsdqvCZpYfvjh";
+    const tezosURI = `tezos:${tezosAddress}?amount=0`;
+    
+    // Fallback to browser if wallet app not installed
+    window.location.href = tezosURI;
+
+    // Optional: open in new tab for browser fallback
+    setTimeout(() => {
+      window.open(`https://tzkt.io/${tezosAddress}`, '_blank');
+    }, 500);
+  });
+</script>
+
 <header>
   <div class="logo">data<span>decay </span></div>
   <div class="status-bar">
