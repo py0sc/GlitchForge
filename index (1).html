@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>GLITCHFORGE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Bebas+Neue&family=VT323&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #080a0e;
+      --panel: #0d1117;
+      --border: #1a2030;
+      --accent: #00ffe1;
+      --accent2: #ff003c;
+      --accent3: #ffe600;
+      --text: #c8d8e8;
+      --dim: #445566;
+      --glow: 0 0 12px #00ffe188;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Share Tech Mono', monospace;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.15) 2px, rgba(0,0,0,0.15) 4px);
+      pointer-events: none;
+      z-index: 9999;
+    }
+
+    /* ── HEADER ── */
+    header {
+      border-bottom: 1px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 100;
+    }
+    header::after {
+      content: '';
+      position: absolute;
+      bottom: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--accent), transparent);
+    }
+    .logo {
+      font-family: 'Bebas Neue', sans-serif;
+      font-size: clamp(1.6rem, 5vw, 2.4rem);
+      letter-spacing: 0.12em;
+      color: var(--accent);
+      text-shadow: var(--glow);
+    }
+    .logo span { color: var(--accent2); }
+    .status-bar { display: flex; align-items: center; gap: 8px; font-size: 0.65rem; color: var(--dim); }
+    .status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent2); animation: pulse 2s infinite; }
+    .status-dot.ready { background: var(--accent); }
+    @keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.5;transform:scale(0.8)} }
+
+    /* ── LOADING SCREEN ── */
+    #loading-screen {
+      position: fixed; inset: 0; background: var(--bg);
+      z-index: 1000; display: flex; flex-direction: column;
+      align-items: center; justify-content: center; gap: 16px; padding: 24px;
+    }
+    #loading-screen .logo { font-size: 2.8rem; }
+    #loading-screen p { color: var(--dim); font-size: 0.8rem; letter-spacing: 0.1em; text-align: center; }
+    #loading-progress { width: 240px; height: 2px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    #loading-fill { height: 100%; background: var(--accent); width: 0%; transition: width 0.5s; box-shadow: 0 0 8px var(--accent); }
+
+    /* ── MAIN LAYOUT — mobile first, single column ── */
+    .app { display: flex; flex-direction: column; }
+
+    /* ── OUTPUT AREA (top on mobile) ── */
+    .canvas-area {
+      background: radial-gradient(ellipse at center, #0d1520 0%, #080a0e 70%);
+      min-height: 260px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      position: relative;
+      padding: 16px;
+    }
+    .canvas-placeholder { text-align: center; color: var(--dim); }
+    .canvas-placeholder .big { font-family: 'VT323', monospace; font-size: 4rem; opacity: 0.3; display: block; }
+    .canvas-placeholder p { font-size: 0.7rem; letter-spacing: 0.1em; margin-top: 6px; }
+
+    #output-gif {
+      max-width: 100%; max-height: 50vh;
+      object-fit: contain;
+      border: 1px solid var(--border);
+      box-shadow: 0 0 30px rgba(0,255,225,0.1);
+      display: none;
+    }
+
+    .progress-wrap { width: 100%; padding: 12px 20px; display: none; }
+    .progress-label { font-size: 0.65rem; letter-spacing: 0.1em; color: var(--accent); margin-bottom: 6px; text-align: center; }
+    .progress-bar-outer { height: 3px; background: var(--border); border-radius: 2px; overflow: hidden; }
+    .progress-bar-inner { height: 100%; background: linear-gradient(90deg, var(--accent2), var(--accent)); border-radius: 2px; width: 0%; transition: width 0.4s; box-shadow: 0 0 8px var(--accent); }
+
+    .bottom-bar {
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 20px;
+      display: flex; align-items: center; justify-content: space-between;
+      font-size: 0.62rem; color: var(--dim); letter-spacing: 0.06em;
+      flex-wrap: wrap; gap: 8px;
+    }
+    .download-btn {
+      background: transparent; border: 1px solid var(--accent);
+      color: var(--accent); font-family: 'Share Tech Mono', monospace;
+      font-size: 0.68rem; letter-spacing: 0.1em;
+      padding: 6px 14px; cursor: pointer; border-radius: 3px;
+      text-decoration: none; display: inline-block;
+      transition: all 0.2s;
+    }
+    .download-btn:hover { background: rgba(0,255,225,0.1); }
+    .download-btn.hidden { display: none; }
+
+    /* ── SIDEBAR / CONTROLS ── */
+    .sidebar {
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .section-label {
+      font-size: 0.62rem; letter-spacing: 0.16em; color: var(--accent);
+      text-transform: uppercase; margin-bottom: 10px;
+      border-left: 2px solid var(--accent); padding-left: 8px;
+    }
+
+    /* Upload */
+    .upload-zone {
+      border: 1px dashed var(--dim); border-radius: 4px;
+      padding: 24px 16px; text-align: center; cursor: pointer;
+      transition: all 0.2s; position: relative; overflow: hidden;
+    }
+    .upload-zone:hover, .upload-zone.drag { border-color: var(--accent); background: rgba(0,255,225,0.04); }
+    .upload-zone input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+    .upload-icon { font-family: 'VT323', monospace; font-size: 2.4rem; color: var(--dim); display: block; margin-bottom: 4px; }
+    .upload-zone p { font-size: 0.72rem; color: var(--dim); line-height: 1.5; }
+    .upload-zone .filename { margin-top: 6px; font-size: 0.68rem; color: var(--accent); word-break: break-all; }
+
+    /* GIF frame info */
+    #gif-info {
+      background: rgba(0,255,225,0.06);
+      border: 1px solid var(--accent);
+      border-radius: 3px;
+      padding: 8px 12px;
+      font-size: 0.68rem;
+      color: var(--accent);
+      display: none;
+      line-height: 1.6;
+    }
+
+    /* Sliders */
+    .control { display: flex; flex-direction: column; gap: 6px; margin-bottom: 12px; }
+    .control label { font-size: 0.65rem; letter-spacing: 0.08em; color: var(--dim); display: flex; justify-content: space-between; }
+    .control label span { color: var(--text); }
+    input[type="range"] {
+      -webkit-appearance: none; width: 100%; height: 3px;
+      background: var(--border); outline: none; border-radius: 2px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 18px; height: 18px;
+      background: var(--accent); border-radius: 50%;
+      cursor: pointer; box-shadow: 0 0 6px var(--accent);
+    }
+
+    select {
+      background: var(--panel); border: 1px solid var(--border);
+      color: var(--text); font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem; padding: 10px; border-radius: 3px;
+      width: 100%; cursor: pointer; outline: none;
+    }
+    select:focus { border-color: var(--accent); }
+
+    /* Toggles */
+    .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+    .toggle-btn {
+      background: var(--panel); border: 1px solid var(--border);
+      color: var(--dim); font-family: 'Share Tech Mono', monospace;
+      font-size: 0.6rem; letter-spacing: 0.04em;
+      padding: 10px 6px; cursor: pointer; border-radius: 3px;
+      transition: all 0.15s; text-align: center;
+      min-height: 44px; /* touch target */
+    }
+    .toggle-btn.on { background: rgba(0,255,225,0.1); border-color: var(--accent); color: var(--accent); }
+
+    /* Buttons */
+    .gen-btn {
+      background: var(--accent2); color: #fff; border: none;
+      font-family: 'Bebas Neue', sans-serif; font-size: 1.5rem;
+      letter-spacing: 0.15em; padding: 16px; width: 100%;
+      cursor: pointer; border-radius: 3px; transition: all 0.2s;
+      min-height: 56px;
+    }
+    .gen-btn:hover { box-shadow: 0 0 20px rgba(255,0,60,0.5); }
+    .gen-btn:disabled { background: var(--dim); cursor: not-allowed; box-shadow: none; }
+
+    .remix-btn {
+      background: transparent; border: 1px solid var(--accent3);
+      color: var(--accent3); font-family: 'Bebas Neue', sans-serif;
+      font-size: 1rem; letter-spacing: 0.15em; padding: 12px;
+      width: 100%; cursor: pointer; border-radius: 3px;
+      transition: all 0.2s; min-height: 44px;
+    }
+    .remix-btn:hover { background: rgba(255,230,0,0.08); }
+    .remix-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+    /* Share */
+    .share-panel { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 12px; display: none; gap: 8px; flex-direction: column; }
+    .share-panel.visible { display: flex; }
+    .share-url { background: var(--bg); border: 1px solid var(--border); color: var(--accent); font-family: 'Share Tech Mono', monospace; font-size: 0.62rem; padding: 8px; border-radius: 3px; width: 100%; word-break: break-all; }
+    .copy-btn { background: var(--accent3); color: #000; border: none; font-family: 'Share Tech Mono', monospace; font-size: 0.68rem; padding: 8px 12px; cursor: pointer; border-radius: 3px; font-weight: bold; }
+
+    /* Desktop: side by side */
+    @media (min-width: 768px) {
+      .app { flex-direction: row; height: calc(100vh - 58px); }
+      .sidebar { width: 320px; min-width: 320px; border-right: 1px solid var(--border); overflow-y: auto; }
+      .sidebar::-webkit-scrollbar { width: 4px; }
+      .sidebar::-webkit-scrollbar-thumb { background: var(--border); }
+      .right-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+      .canvas-area { flex: 1; min-height: unset; }
+      #output-gif { max-height: 80%; }
+    }
+
+    .spinner { width: 36px; height: 36px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.8s linear infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    @keyframes glitch-text {
+      0%,90%,100%{clip-path:none;transform:none}
+      91%{clip-path:inset(20% 0 60% 0);transform:translateX(-4px)}
+      93%{clip-path:inset(50% 0 20% 0);transform:translateX(4px)}
+    }
+    .logo { animation: glitch-text 6s infinite; }
+  </style>
+</head>
+<body>
+
+<div id="loading-screen">
+  <div class="logo">GLITCH<span>FORGE</span></div>
+  <p>INITIALIZING PYTHON ENGINE<br><small style="opacity:0.5">~15MB download, cached after first load</small></p>
+  <div id="loading-progress"><div id="loading-fill"></div></div>
+  <p id="loading-status" style="font-size:0.65rem">Loading Pyodide...</p>
+</div>
+
+<header>
+  <div class="logo">GLITCH<span>FORGE</span></div>
+  <div class="status-bar">
+    <div class="status-dot" id="status-dot"></div>
+    <span id="status-text">INIT</span>
+  </div>
+</header>
+
+<div class="app">
+
+  <!-- SIDEBAR -->
+  <aside class="sidebar">
+
+    <!-- Upload -->
+    <div>
+      <div class="section-label">// INPUT — IMAGE OR GIF</div>
+      <div class="upload-zone" id="upload-zone">
+        <input type="file" id="file-input" accept="image/*,.gif" />
+        <span class="upload-icon">⬡</span>
+        <p>TAP TO UPLOAD<br><small>JPG · PNG · GIF · WEBP</small></p>
+        <p id="filename" class="filename"></p>
+      </div>
+      <div id="gif-info"></div>
+    </div>
+
+    <!-- Palette -->
+    <div>
+      <div class="section-label">// PALETTE THEME</div>
+      <select id="palette-select">
+        <option value="random">◈ RANDOM</option>
+        <option value="GHOSTLY VHS">GHOSTLY VHS</option>
+        <option value="CHROMATIC ABERRATION">CHROMATIC ABERRATION</option>
+        <option value="SMPTE STANDARD">SMPTE STANDARD</option>
+        <option value="CIRCUIT BEND">CIRCUIT BEND</option>
+        <option value="MAGNETIC DECAY">MAGNETIC DECAY</option>
+        <option value="BLUE SCREEN ERROR">BLUE SCREEN ERROR</option>
+        <option value="NEON PHOSPHOR">NEON PHOSPHOR</option>
+        <option value="VERTICAL HOLD">VERTICAL HOLD</option>
+        <option value="SHADOW CRUSH">SHADOW CRUSH</option>
+        <option value="EXPOSED BLOOM">EXPOSED BLOOM</option>
+      </select>
+    </div>
+
+    <!-- Params -->
+    <div>
+      <div class="section-label">// PARAMETERS</div>
+      <div class="control">
+        <label>OUTPUT FRAMES <span id="frames-val">8</span></label>
+        <input type="range" id="frames" min="3" max="16" value="8" />
+      </div>
+      <div class="control">
+        <label>FRAME SPEED ms <span id="speed-val">60</span></label>
+        <input type="range" id="speed" min="20" max="200" value="60" step="10" />
+      </div>
+      <div class="control">
+        <label>GLITCH INTENSITY <span id="intensity-val">5</span></label>
+        <input type="range" id="intensity" min="1" max="10" value="5" />
+      </div>
+      <div class="control">
+        <label>CLUSTER COUNT <span id="clusters-val">12</span></label>
+        <input type="range" id="clusters" min="4" max="25" value="12" />
+      </div>
+      <div class="control">
+        <label>SORT STRENGTH <span id="sort-val">5</span></label>
+        <input type="range" id="sort-strength" min="1" max="10" value="5" />
+      </div>
+    </div>
+
+    <!-- Effects -->
+    <div>
+      <div class="section-label">// EFFECTS</div>
+      <div class="toggle-grid">
+        <button class="toggle-btn on" data-fx="rgb_split">RGB SPLIT</button>
+        <button class="toggle-btn on" data-fx="pixel_sort">PIXEL SORT</button>
+        <button class="toggle-btn on" data-fx="heatmap">HEATMAP</button>
+        <button class="toggle-btn on" data-fx="invert">INVERT</button>
+        <button class="toggle-btn on" data-fx="tint">COLOR TINT</button>
+        <button class="toggle-btn on" data-fx="scan_lines">SCAN LINES</button>
+        <button class="toggle-btn on" data-fx="block_shift">BLOCK SHIFT</button>
+        <button class="toggle-btn on" data-fx="chromab">CHROM. ABER.</button>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div style="display:flex;flex-direction:column;gap:8px">
+      <button class="gen-btn" id="gen-btn" disabled>GENERATE GLITCH</button>
+      <button class="remix-btn" id="remix-btn" disabled>⟳ RANDOMIZE ALL</button>
+    </div>
+
+    <!-- Share -->
+    <div>
+      <div class="section-label">// SHARE SETTINGS</div>
+      <div class="share-panel" id="share-panel">
+        <div style="font-size:0.62rem;color:var(--dim)">Share your exact settings:</div>
+        <div class="share-url" id="share-url"></div>
+        <button class="copy-btn" id="copy-btn">COPY LINK</button>
+      </div>
+      <div style="font-size:0.62rem;color:var(--dim);margin-top:4px" id="share-hint">Generate first to get a share link</div>
+    </div>
+
+    <!-- spacer for mobile scroll comfort -->
+    <div style="height:20px"></div>
+  </aside>
+
+  <!-- RIGHT PANEL -->
+  <div class="right-panel">
+    <div class="canvas-area">
+      <div class="canvas-placeholder" id="placeholder">
+        <span class="big">▒</span>
+        <p>UPLOAD AN IMAGE OR GIF<br>THEN HIT GENERATE</p>
+      </div>
+      <div class="spinner" id="spinner"></div>
+      <img id="output-gif" alt="Glitched output" />
+    </div>
+
+    <div class="progress-wrap" id="progress-wrap">
+      <div class="progress-label" id="progress-label">PROCESSING...</div>
+      <div class="progress-bar-outer">
+        <div class="progress-bar-inner" id="progress-bar"></div>
+      </div>
+    </div>
+
+    <div class="bottom-bar">
+      <span id="meta-text">NO OUTPUT YET</span>
+      <a class="download-btn hidden" id="download-btn" download="glitchforge.gif">⬇ DOWNLOAD GIF</a>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/pyodide/v0.25.1/full/pyodide.js"></script>
+<script>
+let pyodide = null;
+let uploadedImageData = null;
+let uploadedIsGif = false;
+let gifFrameCount = 0;
+let activeEffects = new Set(['rgb_split','pixel_sort','heatmap','invert','tint','scan_lines','block_shift','chromab']);
+
+// ── Load Pyodide ──
+async function loadApp() {
+  const fill = document.getElementById('loading-fill');
+  const status = document.getElementById('loading-status');
+  fill.style.width = '10%';
+  pyodide = await loadPyodide();
+  fill.style.width = '40%'; status.textContent = 'Loading numpy...';
+  await pyodide.loadPackage('numpy');
+  fill.style.width = '70%'; status.textContent = 'Loading Pillow...';
+  await pyodide.loadPackage('Pillow');
+  fill.style.width = '100%'; status.textContent = 'Ready!';
+  await new Promise(r => setTimeout(r, 400));
+  document.getElementById('loading-screen').style.display = 'none';
+  document.getElementById('status-dot').classList.add('ready');
+  document.getElementById('status-text').textContent = 'READY';
+  document.getElementById('gen-btn').disabled = false;
+  document.getElementById('remix-btn').disabled = false;
+  loadFromURL();
+}
+
+// ── Sliders ──
+['frames','speed','intensity','clusters','sort-strength'].forEach(id => {
+  const el = document.getElementById(id);
+  const valId = id === 'sort-strength' ? 'sort-val' : id + '-val';
+  el.addEventListener('input', () => document.getElementById(valId).textContent = el.value);
+});
+
+// ── Effect toggles ──
+document.querySelectorAll('.toggle-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const fx = btn.dataset.fx;
+    activeEffects.has(fx) ? activeEffects.delete(fx) : activeEffects.add(fx);
+    btn.classList.toggle('on');
+  });
+});
+
+// ── File upload ──
+const fileInput = document.getElementById('file-input');
+const uploadZone = document.getElementById('upload-zone');
+fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
+uploadZone.addEventListener('dragover', e => { e.preventDefault(); uploadZone.classList.add('drag'); });
+uploadZone.addEventListener('dragleave', () => uploadZone.classList.remove('drag'));
+uploadZone.addEventListener('drop', e => {
+  e.preventDefault(); uploadZone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) processFile(f);
+});
+
+function processFile(file) {
+  document.getElementById('filename').textContent = file.name;
+  uploadedIsGif = file.type === 'image/gif' || file.name.toLowerCase().endsWith('.gif');
+  const reader = new FileReader();
+  reader.onload = async ev => {
+    uploadedImageData = ev.target.result;
+    if (uploadedIsGif) {
+      // Count frames using Pyodide
+      try {
+        const b64 = uploadedImageData.split(',')[1];
+        pyodide.globals.set('_gif_b64', b64);
+        const n = await pyodide.runPythonAsync(`
+import io, base64
+from PIL import Image
+buf = io.BytesIO(base64.b64decode(_gif_b64))
+img = Image.open(buf)
+n = getattr(img, 'n_frames', 1)
+n
+`);
+        gifFrameCount = n;
+        const info = document.getElementById('gif-info');
+        info.style.display = 'block';
+        info.textContent = `GIF DETECTED — ${n} FRAMES\nEach frame will be glitched individually`;
+        // Auto-set frames slider to match
+        document.getElementById('frames').value = Math.min(n, 16);
+        document.getElementById('frames-val').textContent = Math.min(n, 16);
+      } catch(e) { console.warn('GIF frame count failed', e); }
+    } else {
+      document.getElementById('gif-info').style.display = 'none';
+    }
+  };
+  reader.readAsDataURL(file);
+}
+
+// ── Randomize ──
+document.getElementById('remix-btn').addEventListener('click', () => {
+  const rand = (min, max) => Math.floor(Math.random()*(max-min+1))+min;
+  document.getElementById('frames').value = rand(3,16);
+  document.getElementById('speed').value = [20,30,40,50,60,80,100,150,200][rand(0,8)];
+  document.getElementById('intensity').value = rand(1,10);
+  document.getElementById('clusters').value = rand(4,25);
+  document.getElementById('sort-strength').value = rand(1,10);
+  ['frames','speed','intensity','clusters'].forEach(id => {
+    document.getElementById(id+'-val').textContent = document.getElementById(id).value;
+  });
+  document.getElementById('sort-val').textContent = document.getElementById('sort-strength').value;
+  const opts = document.getElementById('palette-select').options;
+  opts[rand(0, opts.length-1)].selected = true;
+  document.querySelectorAll('.toggle-btn').forEach(btn => {
+    const on = Math.random() > 0.3;
+    on ? activeEffects.add(btn.dataset.fx) : activeEffects.delete(btn.dataset.fx);
+    btn.classList.toggle('on', on);
+  });
+});
+
+// ── Generate ──
+document.getElementById('gen-btn').addEventListener('click', generate);
+
+async function generate() {
+  if (!uploadedImageData) { alert('Upload an image or GIF first!'); return; }
+  const genBtn = document.getElementById('gen-btn');
+  genBtn.disabled = true; genBtn.textContent = 'PROCESSING...';
+  document.getElementById('placeholder').style.display = 'none';
+  document.getElementById('output-gif').style.display = 'none';
+  document.getElementById('spinner').style.display = 'block';
+  document.getElementById('progress-wrap').style.display = 'block';
+  setProgress(5, 'LOADING IMAGE...');
+
+  const params = {
+    frames: parseInt(document.getElementById('frames').value),
+    speed: parseInt(document.getElementById('speed').value),
+    intensity: parseInt(document.getElementById('intensity').value),
+    clusters: parseInt(document.getElementById('clusters').value),
+    sort_strength: parseInt(document.getElementById('sort-strength').value),
+    palette: document.getElementById('palette-select').value,
+    effects: [...activeEffects],
+    is_gif: uploadedIsGif,
+  };
+
+  try {
+    const b64 = uploadedImageData.split(',')[1];
+    pyodide.globals.set('_img_b64', b64);
+    pyodide.globals.set('_params', params);
+    setProgress(20, 'RUNNING ENGINE...');
+
+    const result = await pyodide.runPythonAsync(`
+import io, random, math, base64
+import numpy as np
+from PIL import Image
+
+params = _params.to_py()
+FRAMES = params['frames']
+FRAME_DURATION = params['speed']
+INTENSITY = params['intensity'] / 5.0
+CLUSTERS = int(params['clusters'])
+SORT_STR = params['sort_strength'] / 5.0
+PALETTE_KEY = params['palette']
+ACTIVE_FX = set(params['effects'])
+IS_GIF = params['is_gif']
+
+ANALOG_PALETTES = {
+    "GHOSTLY VHS":          [(180,160,210),(120,150,160),(100,100,100),(40,40,50)],
+    "CHROMATIC ABERRATION": [(0,255,255),(255,0,255),(255,255,255),(10,10,50)],
+    "SMPTE STANDARD":       [(200,200,50),(50,200,200),(200,50,200),(200,50,50),(50,50,200)],
+    "CIRCUIT BEND":         [(140,255,0),(255,120,0),(10,10,10),(100,0,255)],
+    "MAGNETIC DECAY":       [(110,60,40),(160,130,50),(70,80,50),(240,230,200)],
+    "BLUE SCREEN ERROR":    [(0,50,200),(0,180,255),(255,255,255),(0,20,100)],
+    "NEON PHOSPHOR":        [(50,255,50),(20,20,20),(220,255,220),(30,80,30)],
+    "VERTICAL HOLD":        [(255,160,160),(160,255,200),(100,100,120),(230,200,130)],
+    "SHADOW CRUSH":         [(20,30,80),(60,20,100),(5,5,10),(180,180,200)],
+    "EXPOSED BLOOM":        [(255,200,180),(255,255,230),(255,255,150),(150,150,160)],
+}
+if PALETTE_KEY == "random" or PALETTE_KEY not in ANALOG_PALETTES:
+    pal = random.choice(list(ANALOG_PALETTES.values()))
+else:
+    pal = ANALOG_PALETTES[PALETTE_KEY]
+
+# ── Load source frames ──
+raw = base64.b64decode(_img_b64)
+src_img = Image.open(io.BytesIO(raw))
+
+source_frames = []
+if IS_GIF and hasattr(src_img, 'n_frames') and src_img.n_frames > 1:
+    for fi in range(min(src_img.n_frames, FRAMES)):
+        src_img.seek(fi)
+        f = src_img.convert("RGB")
+        f.thumbnail((600, 450), Image.LANCZOS)
+        source_frames.append(np.array(f))
+    # Cycle if needed
+    while len(source_frames) < FRAMES:
+        source_frames.append(source_frames[len(source_frames) % len(source_frames)])
+    source_frames = source_frames[:FRAMES]
+else:
+    base = src_img.convert("RGB")
+    base.thumbnail((600, 450), Image.LANCZOS)
+    base_arr = np.array(base)
+    source_frames = [base_arr.copy() for _ in range(FRAMES)]
+
+HEIGHT, WIDTH = source_frames[0].shape[:2]
+
+# ── Effects ──
+def tint_fx(a):
+    col = np.array(random.choice(pal))
+    return np.clip(a*0.6 + col*0.4, 0, 255).astype(np.uint8)
+
+def pixel_sort_fx(a):
+    o = a.copy()
+    rows = max(1, int(HEIGHT * SORT_STR * 0.4))
+    idxs = sorted(random.sample(range(HEIGHT), min(rows, HEIGHT)))
+    for y in idxs: o[y] = o[y][np.argsort(o[y].mean(1))]
+    return o
+
+def rgb_split_fx(a):
+    o = a.copy()
+    amt = max(1, int(15 * INTENSITY))
+    o[:,:,0] = np.roll(o[:,:,0], random.randint(-amt,amt), 1)
+    o[:,:,1] = np.roll(o[:,:,1], random.randint(-amt,amt), 0)
+    o[:,:,2] = np.roll(o[:,:,2], random.randint(-amt,amt), 1)
+    return o
+
+def heatmap_fx(a):
+    af = a.astype(np.float32)/255
+    o = np.stack([(np.sin(af[:,:,0]*3)+1)/2,(np.sin(af[:,:,1]*6)+1)/2,(np.sin(af[:,:,2]*9)+1)/2],2)
+    return tint_fx((o*255).astype(np.uint8))
+
+def scan_lines_fx(a):
+    o = a.copy().astype(np.float32)
+    o[::3] *= 0.25
+    return np.clip(o, 0, 255).astype(np.uint8)
+
+def block_shift_fx(a):
+    o = a.copy()
+    for _ in range(max(1, int(8 * INTENSITY))):
+        if random.random() < 0.5:
+            y = random.randint(0, HEIGHT-2)
+            bh = random.randint(1, max(2, int(10*INTENSITY)))
+            o[y:y+bh] = np.roll(o[y:y+bh], random.randint(-WIDTH//4, WIDTH//4), axis=1)
+        else:
+            x = random.randint(0, WIDTH-2)
+            bw = random.randint(1, max(2, int(10*INTENSITY)))
+            o[:, x:x+bw] = np.roll(o[:, x:x+bw], random.randint(-HEIGHT//4, HEIGHT//4), axis=0)
+    return o
+
+def chromab_fx(a):
+    o = a.copy()
+    amt = max(1, int(18 * INTENSITY))
+    o[:,:,0] = np.roll(o[:,:,0], amt, axis=1)
+    o[:,:,2] = np.roll(o[:,:,2], -amt, axis=1)
+    return o
+
+def invert_fx(a): return (255 - a).astype(np.uint8)
+
+pool = []
+if 'pixel_sort' in ACTIVE_FX: pool.append(pixel_sort_fx)
+if 'rgb_split'  in ACTIVE_FX: pool.append(rgb_split_fx)
+if 'heatmap'    in ACTIVE_FX: pool.append(heatmap_fx)
+if 'invert'     in ACTIVE_FX: pool.append(invert_fx)
+if 'tint'       in ACTIVE_FX: pool.append(tint_fx)
+if 'scan_lines' in ACTIVE_FX: pool.append(scan_lines_fx)
+if 'block_shift'in ACTIVE_FX: pool.append(block_shift_fx)
+if 'chromab'    in ACTIVE_FX: pool.append(chromab_fx)
+if not pool: pool = [rgb_split_fx]
+
+# ── K-means on first frame ──
+base_arr = source_frames[0]
+px = base_arr.reshape(-1, 3).astype(np.float32)
+n_sample = min(15000, len(px))
+idx = np.random.choice(len(px), n_sample, replace=False)
+px_s = px[idx]
+centres = px_s[np.random.choice(len(px_s), CLUSTERS, replace=False)].copy()
+for _ in range(10):
+    dist = np.sum(px_s**2,1,keepdims=True) + np.sum(centres**2,1) - 2*px_s@centres.T
+    labs = np.argmin(dist,1)
+    for i in range(CLUSTERS):
+        m = labs==i
+        if m.any(): centres[i] = px_s[m].mean(0)
+
+fxs = [random.choice(pool) for _ in range(CLUSTERS)]
+
+# ── Generate output frames ──
+out_frames = []
+prev = None
+
+for fi in range(FRAMES):
+    src = source_frames[fi].copy()
+    
+    # Compute cluster labels for this frame
+    fpx = src.reshape(-1,3).astype(np.float32)
+    fdist = np.sum(fpx**2,1,keepdims=True) + np.sum(centres**2,1) - 2*fpx@centres.T
+    flabels = np.argmin(fdist,1).reshape(HEIGHT,WIDTH)
+
+    arr = src.copy()
+    if 'block_shift' in ACTIVE_FX: arr = block_shift_fx(arr)
+    if 'chromab' in ACTIVE_FX and random.random() < 0.6: arr = chromab_fx(arr)
+
+    for ci in range(CLUSTERS):
+        mask = flabels == ci
+        if not mask.any() or random.random() < 0.35: continue
+        result = fxs[ci](arr)
+        arr[mask] = result[mask]
+
+    if prev is not None:
+        alpha = random.uniform(0.2, 0.4)
+        arr = np.clip(arr*(1-alpha) + prev*alpha, 0, 255).astype(np.uint8)
+    prev = arr.copy()
+
+    noise_mask = np.random.rand(HEIGHT, WIDTH) < (0.003 * INTENSITY)
+    arr[noise_mask] = np.clip(arr[noise_mask] + random.randint(100,255), 0, 255)
+
+    out_frames.append(Image.fromarray(arr.astype(np.uint8)))
+
+# ── Encode GIF ──
+buf = io.BytesIO()
+out_frames[0].save(buf, format='GIF', save_all=True,
+    append_images=out_frames[1:], duration=FRAME_DURATION, loop=0, optimize=False)
+buf.seek(0)
+base64.b64encode(buf.read()).decode('ascii')
+`);
+
+    setProgress(95, 'ENCODING...');
+    const binary = atob(result);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    const blob = new Blob([bytes], { type: 'image/gif' });
+    const url = URL.createObjectURL(blob);
+
+    document.getElementById('output-gif').src = url;
+    document.getElementById('output-gif').style.display = 'block';
+    document.getElementById('spinner').style.display = 'none';
+    setProgress(100, 'DONE!');
+    setTimeout(() => document.getElementById('progress-wrap').style.display = 'none', 800);
+
+    document.getElementById('download-btn').href = url;
+    document.getElementById('download-btn').classList.remove('hidden');
+    document.getElementById('meta-text').textContent =
+      `${params.frames}F // ${params.speed}ms // ${params.palette.toUpperCase()} // ${params.effects.length} FX`;
+
+    buildShareURL(params);
+
+  } catch(err) {
+    console.error(err);
+    alert('Error: ' + err.message);
+    document.getElementById('placeholder').style.display = 'block';
+    document.getElementById('spinner').style.display = 'none';
+    document.getElementById('progress-wrap').style.display = 'none';
+  }
+
+  genBtn.disabled = false;
+  genBtn.textContent = 'GENERATE GLITCH';
+}
+
+function setProgress(pct, label) {
+  document.getElementById('progress-bar').style.width = pct + '%';
+  document.getElementById('progress-label').textContent = label;
+}
+
+function buildShareURL(params) {
+  const base = window.location.origin + window.location.pathname;
+  const p = new URLSearchParams({
+    frames: params.frames, speed: params.speed, intensity: params.intensity,
+    clusters: params.clusters, sort: params.sort_strength,
+    palette: params.palette, fx: params.effects.join(',')
+  });
+  const url = base + '?' + p.toString();
+  document.getElementById('share-url').textContent = url;
+  document.getElementById('share-panel').classList.add('visible');
+  document.getElementById('share-hint').style.display = 'none';
+}
+
+function loadFromURL() {
+  const p = new URLSearchParams(window.location.search);
+  if (!p.has('frames')) return;
+  const set = (id, val) => { const el = document.getElementById(id); if(el){el.value=val;el.dispatchEvent(new Event('input'));} };
+  if (p.get('frames')) set('frames', p.get('frames'));
+  if (p.get('speed')) set('speed', p.get('speed'));
+  if (p.get('intensity')) set('intensity', p.get('intensity'));
+  if (p.get('clusters')) set('clusters', p.get('clusters'));
+  if (p.get('sort')) set('sort-strength', p.get('sort'));
+  if (p.get('palette')) {
+    const sel = document.getElementById('palette-select');
+    for (let o of sel.options) if (o.value === p.get('palette')) o.selected = true;
+  }
+  if (p.get('fx')) {
+    const fxSet = new Set(p.get('fx').split(','));
+    activeEffects.clear();
+    document.querySelectorAll('.toggle-btn').forEach(btn => {
+      const on = fxSet.has(btn.dataset.fx);
+      on ? activeEffects.add(btn.dataset.fx) : null;
+      btn.classList.toggle('on', on);
+    });
+  }
+}
+
+document.getElementById('copy-btn').addEventListener('click', () => {
+  navigator.clipboard.writeText(document.getElementById('share-url').textContent);
+  const btn = document.getElementById('copy-btn');
+  btn.textContent = 'COPIED!';
+  setTimeout(() => btn.textContent = 'COPY LINK', 1500);
+});
+
+loadApp().catch(err => {
+  document.getElementById('loading-status').textContent = 'ERROR: ' + err.message;
+  document.getElementById('loading-fill').style.background = '#ff003c';
+});
+</script>
+</body>
+</html>
